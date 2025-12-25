@@ -74,11 +74,13 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## 🌍 Language Dictionaries
 
-Language dictionaries are stored in `dictionary/` and embedded at build time. The Catalan list is generated from a frequency corpus and reduced to a practical size while preserving coverage of letters, digraphs, and symbols.
+Language dictionaries are stored in `dictionary/` and embedded at build time. The Catalan lists are generated from a frequency corpus and reduced to a practical size while preserving coverage of letters, digraphs, and symbols.
 
 - **Source**: Leipzig Corpora Collection (Catalan Wikipedia 2021, 300K)
 - **Generator**: `scripts/build_ca_dictionary.py`
 - **Metadata**: `dictionary/ca.source.txt`
+- **Levels metadata**: `dictionary/ca.levels.source.txt`
+- **Levels config**: `scripts/ca_levels.json`
 - **Links**:
   - Corpus: https://downloads.wortschatz-leipzig.de/corpora/cat_wikipedia_2021_300K.tar.gz
   - Terms of usage (downloads are CC BY): https://wortschatz.uni-leipzig.de/en/usage
@@ -86,6 +88,11 @@ Language dictionaries are stored in `dictionary/` and embedded at build time. Th
 To regenerate the Catalan list:
 ```bash
 python3 scripts/build_ca_dictionary.py --target-size 1200
+```
+
+To generate the 10 progressive Catalan levels (800 words each):
+```bash
+python3 scripts/build_ca_dictionary.py --levels-config scripts/ca_levels.json
 ```
 
 ## 📝 License

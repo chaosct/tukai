@@ -1,0 +1,67 @@
+{
+  "levels": [
+    {
+      "name": "ca-l1",
+      "add_chars": "aeiourtnsl",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l2",
+      "add_chars": "dcm",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l3",
+      "add_chars": "pgb",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l4",
+      "add_chars": "fvh",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l5",
+      "add_chars": "qjky",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l6",
+      "add_chars": "xwz",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l7",
+      "add_chars": "ñçàèéíòóúü",
+      "add_symbols": "·",
+      "add_digraphs": ["l·l"],
+      "include_words": ["peñíscola", "cabañes"],
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l8",
+      "add_symbols": "'-",
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l9",
+      "add_digraphs": ["ll", "rr", "ny"],
+      "target_size": 800,
+      "seed_size": 200
+    },
+    {
+      "name": "ca-l10",
+      "add_digraphs": ["qu", "qü", "gu", "gü", "ig", "ix", "tx", "tg", "tj", "ss"],
+      "target_size": 800,
+      "seed_size": 200
+    }
+  ]
+}

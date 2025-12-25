@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime as dt
-import io
+import json
 import os
 import tarfile
 import tempfile
@@ -12,7 +12,7 @@ DEFAULT_URL = (
     "cat_wikipedia_2021_300K.tar.gz"
 )
 
-LETTERS = set("abcdefghijklmnopqrstuvwxyzàáèéíïòóúüç")
+LETTERS = set("abcdefghijklmnopqrstuvwxyzàáèéíïòóúüçñ")
 SYMBOLS = set(["'", "’", "-", "·"])
 DIGRAPHS = [
     "ny",
@@ -84,23 +84,40 @@ def is_valid_word(word: str) -> bool:
     return has_letter
 
 
-def get_features(word: str) -> set:
+def get_features(word: str, digraphs) -> set:
     features = set()
     for ch in word:
         if ch in LETTERS:
             features.add(f"letter:{ch}")
         elif ch in SYMBOLS:
             features.add(f"symbol:{ch}")
-    for d in DIGRAPHS:
+    for d in digraphs:
         if d in word:
             features.add(f"digraph:{d}")
     return features
 
 
-def select_words(words, target_size: int, seed_size: int, candidate_size: int):
-    candidates = words[:candidate_size]
+def select_words(
+    words,
+    target_size: int,
+    seed_size: int,
+    candidate_size: int,
+    allowed_letters,
+    allowed_symbols,
+    required_digraphs,
+    include_words,
+):
+    candidates = words[:candidate_size] if candidate_size else words
     selected = []
     selected_set = set()
+
+    for word in include_words:
+        if word in selected_set:
+            continue
+        selected.append(word)
+        selected_set.add(word)
+        if len(selected) >= target_size:
+            return selected, set()
 
     for word, _freq in candidates:
         if word in selected_set:
@@ -110,13 +127,13 @@ def select_words(words, target_size: int, seed_size: int, candidate_size: int):
         if len(selected) >= seed_size:
             break
 
-    target_features = {f"letter:{ch}" for ch in LETTERS}
-    target_features |= {f"symbol:{ch}" for ch in SYMBOLS}
-    target_features |= {f"digraph:{d}" for d in DIGRAPHS}
+    target_features = {f"letter:{ch}" for ch in allowed_letters}
+    target_features |= {f"symbol:{ch}" for ch in allowed_symbols}
+    target_features |= {f"digraph:{d}" for d in required_digraphs}
 
     covered = set()
     for word in selected:
-        covered |= get_features(word)
+        covered |= get_features(word, required_digraphs)
 
     missing = target_features - covered
 
@@ -126,7 +143,7 @@ def select_words(words, target_size: int, seed_size: int, candidate_size: int):
         for word, _freq in candidates:
             if word in selected_set:
                 continue
-            gain = len(get_features(word) & missing)
+            gain = len(get_features(word, required_digraphs) & missing)
             if gain > best_gain:
                 best_gain = gain
                 best_word = word
@@ -134,7 +151,7 @@ def select_words(words, target_size: int, seed_size: int, candidate_size: int):
             break
         selected.append(best_word)
         selected_set.add(best_word)
-        missing -= get_features(best_word)
+        missing -= get_features(best_word, required_digraphs)
 
     for word, _freq in candidates:
         if len(selected) >= target_size:
@@ -160,6 +177,69 @@ def write_source_info(path: str, url: str):
         f.write(f"Generated: {dt.datetime.utcnow().isoformat()}Z\n")
 
 
+def load_levels_config(path: str):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def build_level_words(words, levels_config, candidate_size: int, output_dir: str):
+    levels = levels_config.get("levels", [])
+    if not levels:
+        raise RuntimeError("No levels defined in levels config.")
+
+    allowed_letters = set()
+    allowed_symbols = set()
+    required_digraphs = []
+    outputs = []
+
+    for level in levels:
+        name = level["name"]
+        target_size = int(level.get("target_size", 800))
+        seed_size = int(level.get("seed_size", 200))
+        add_chars = level.get("add_chars", "")
+        add_symbols = level.get("add_symbols", "")
+        add_digraphs = level.get("add_digraphs", [])
+        include_words = level.get("include_words", [])
+
+        allowed_letters |= set(add_chars)
+        allowed_symbols |= set(add_symbols)
+        required_digraphs.extend(add_digraphs)
+
+        filtered = []
+        for word, freq in words:
+            if all((ch in allowed_letters) or (ch in allowed_symbols) for ch in word):
+                filtered.append((word, freq))
+
+        normalized_include = []
+        for word in include_words:
+            w = word.lower()
+            if all((ch in allowed_letters) or (ch in allowed_symbols) for ch in w):
+                normalized_include.append(w)
+
+        if not filtered:
+            outputs.append((name, [], set()))
+            continue
+
+        if len(filtered) < target_size:
+            target_size = len(filtered)
+
+        selected, missing = select_words(
+            filtered,
+            target_size,
+            min(seed_size, target_size),
+            candidate_size,
+            allowed_letters,
+            allowed_symbols,
+            required_digraphs,
+            normalized_include,
+        )
+
+        output_path = os.path.join(output_dir, f"{name}.txt")
+        outputs.append((output_path, selected, missing))
+
+    return outputs
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build Catalan dictionary from a frequency corpus."
@@ -170,6 +250,11 @@ def main():
     parser.add_argument("--candidate-size", type=int, default=20000)
     parser.add_argument("--output", default="dictionary/ca.txt")
     parser.add_argument("--source-output", default="dictionary/ca.source.txt")
+    parser.add_argument("--levels-config", default="")
+    parser.add_argument("--levels-output-dir", default="dictionary")
+    parser.add_argument(
+        "--levels-source-output", default="dictionary/ca.levels.source.txt"
+    )
     args = parser.parse_args()
 
     if args.seed_size > args.target_size:
@@ -183,17 +268,40 @@ def main():
     finally:
         os.remove(archive_path)
 
-    selected, missing = select_words(
-        words, args.target_size, args.seed_size, args.candidate_size
-    )
+    if args.levels_config:
+        levels_config = load_levels_config(args.levels_config)
+        level_outputs = build_level_words(
+            words, levels_config, args.candidate_size, args.levels_output_dir
+        )
+        for output_path, selected, missing in level_outputs:
+            if not selected:
+                print(f"Skipped {output_path} (no candidates)")
+                continue
+            write_output(output_path, selected)
+            if missing:
+                missing_list = sorted(missing)
+                print(f"Missing coverage for {output_path}: {', '.join(missing_list)}")
+            print(f"Wrote {len(selected)} words to {output_path}")
+        write_source_info(args.levels_source_output, args.url)
+    else:
+        selected, missing = select_words(
+            words,
+            args.target_size,
+            args.seed_size,
+            args.candidate_size,
+            LETTERS,
+            SYMBOLS,
+            DIGRAPHS,
+            [],
+        )
 
-    write_output(args.output, selected)
-    write_source_info(args.source_output, args.url)
+        write_output(args.output, selected)
+        write_source_info(args.source_output, args.url)
 
-    if missing:
-        missing_list = sorted(missing)
-        print("Missing coverage:", ", ".join(missing_list))
-    print(f"Wrote {len(selected)} words to {args.output}")
+        if missing:
+            missing_list = sorted(missing)
+            print("Missing coverage:", ", ".join(missing_list))
+        print(f"Wrote {len(selected)} words to {args.output}")
 
 
 if __name__ == "__main__":
