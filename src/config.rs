@@ -293,11 +293,10 @@ impl Language {
   }
 
   pub fn init_lang_code(&mut self) {
-    let filename = &self.language_files[self.current_index];
-
-    let lang_code = Path::new(filename)
-      .file_stem()
-      .and_then(|s| s.to_str())
+    let lang_code = self
+      .language_files
+      .get(self.current_index)
+      .and_then(|filename| Path::new(filename).file_stem().and_then(|s| s.to_str()))
       .unwrap_or("unknown")
       .to_string();
 
@@ -322,7 +321,13 @@ impl Language {
   }
 
   pub fn current_index(&mut self, index: usize) {
-    self.current_index = index;
+    if self.language_files.is_empty() {
+      self.current_index = 0;
+      self.lang_code = String::from("unknown");
+      return;
+    }
+
+    self.current_index = index.min(self.language_files.len().saturating_sub(1));
     self.init_lang_code();
   }
 
@@ -333,6 +338,12 @@ impl Language {
 
   /// Switches a current language
   pub fn switch_language(&mut self) -> usize {
+    if self.language_files.is_empty() {
+      self.current_index = 0;
+      self.lang_code = String::from("unknown");
+      return self.current_index;
+    }
+
     self.current_index += 1;
 
     if self.current_index >= self.language_files.len() {
@@ -347,9 +358,10 @@ impl Language {
   ///
   /// So i.e. available languages
   pub fn load_language_files(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let languages = LanguageDictionary::iter()
+    let mut languages = LanguageDictionary::iter()
       .map(|file| file.to_string())
       .collect::<Vec<String>>();
+    languages.sort_unstable();
 
     // Maybe in feature manual load custom languages
     //
@@ -371,7 +383,8 @@ impl Language {
       .get(self.current_index)
       .ok_or("Not found a language dictionary file")?;
 
-    let file = LanguageDictionary::get(language_file_path).unwrap();
+    let file = LanguageDictionary::get(language_file_path)
+      .ok_or("Not found a language dictionary file contents")?;
 
     let words = std::str::from_utf8(&file.data)?
       .lines()

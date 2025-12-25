@@ -72,6 +72,22 @@ x install tukai
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
+## 🌍 Language Dictionaries
+
+Language dictionaries are stored in `dictionary/` and embedded at build time. The Catalan list is generated from a frequency corpus and reduced to a practical size while preserving coverage of letters, digraphs, and symbols.
+
+- **Source**: Leipzig Corpora Collection (Catalan Wikipedia 2021, 300K)
+- **Generator**: `scripts/build_ca_dictionary.py`
+- **Metadata**: `dictionary/ca.source.txt`
+- **Links**:
+  - Corpus: https://downloads.wortschatz-leipzig.de/corpora/cat_wikipedia_2021_300K.tar.gz
+  - Terms of usage (downloads are CC BY): https://wortschatz.uni-leipzig.de/en/usage
+
+To regenerate the Catalan list:
+```bash
+python3 scripts/build_ca_dictionary.py --target-size 1200
+```
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
