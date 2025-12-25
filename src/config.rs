@@ -360,6 +360,7 @@ impl Language {
   pub fn load_language_files(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut languages = LanguageDictionary::iter()
       .map(|file| file.to_string())
+      .filter(|file| file.ends_with(".txt") && !file.ends_with(".source.txt"))
       .collect::<Vec<String>>();
     languages.sort_unstable();
 
